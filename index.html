@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Live Device Tracker</title>
+  <title>Live Device Tracker + Input</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
@@ -10,18 +10,20 @@
       margin: 0;
       padding: 0;
     }
-    .navigate-button {
+    .navigate-button, .form-box {
       position: absolute;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      z-index: 1000;
+    }
+    .navigate-button {
       top: 10px;
       left: 10px;
       padding: 10px;
-      background: white;
-      border-radius: 8px;
       text-decoration: none;
       color: black;
       font-weight: bold;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      z-index: 1000;
     }
     .info-box {
       position: absolute;
@@ -34,11 +36,34 @@
       box-shadow: 0 2px 6px rgba(0,0,0,0.2);
       z-index: 1000;
     }
+    .form-box {
+      top: 150px;
+      left: 10px;
+      padding: 10px;
+      font-size: 14px;
+      width: 250px;
+    }
+    input, button {
+      width: 100%;
+      margin: 5px 0;
+      padding: 6px;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
   <a id="navBtn" class="navigate-button" target="_blank">🔍 Arahkan ke Lokasi Terakhir</a>
   <div id="infoBox" class="info-box"></div>
+
+  <div class="form-box">
+    <b>📝 Update Lokasi Target:</b>
+    <input id="device" placeholder="Nama Perangkat" required>
+    <input id="lat" placeholder="Latitude" required>
+    <input id="lng" placeholder="Longitude" required>
+    <input id="token" placeholder="GitHub Token" required>
+    <button onclick="submitToGitHub()">Update ke GitHub</button>
+  </div>
+
   <div id="map"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -46,7 +71,6 @@
     const dataUrl = "https://raw.githubusercontent.com/SATESYUKUR/device-tracker/main/location.json";
 
     const map = L.map('map').setView([0, 0], 2);
-
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap'
@@ -63,7 +87,7 @@
 
         map.setView(coord, 16);
 
-        const targetMarker = L.marker(coord).addTo(map).bindPopup(`${label}<br>🕒 ${timestamp}`).openPopup();
+        L.marker(coord).addTo(map).bindPopup(`${label}<br>🕒 ${timestamp}`).openPopup();
 
         L.circle(coord, {
           color: 'green',
@@ -88,9 +112,7 @@
 
             const distance = map.distance(userCoord, coord);
             const distanceKm = (distance / 1000).toFixed(2);
-
-            // Kecepatan simulasi (jarak dibagi waktu statis, misalnya 10 detik)
-            const speedKmh = ((distance / 10) * 3.6).toFixed(1); // simulasi 10 detik update
+            const speedKmh = ((distance / 10) * 3.6).toFixed(1);
 
             let mode = "";
             if (speedKmh < 6) mode = "🚶 Jalan kaki";
@@ -102,16 +124,57 @@
               <b>Posisi Anda:</b> ${userLat.toFixed(6)}, ${userLng.toFixed(6)}<br>
               <b>Target:</b> ${lat.toFixed(6)}, ${lng.toFixed(6)}<br>
               <b>Jarak:</b> ${distanceKm} km<br>
-              <b>Estimasi Aktivitas:</b> ${mode}
-            `;
+              <b>Estimasi Aktivitas:</b> ${mode}`;
 
             document.getElementById("navBtn").href = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${lat},${lng}`;
           });
         }
-      })
-      .catch(error => {
-        alert("Gagal memuat data lokasi: " + error);
       });
+
+    async function submitToGitHub() {
+      const device = document.getElementById("device").value;
+      const lat = parseFloat(document.getElementById("lat").value);
+      const lng = parseFloat(document.getElementById("lng").value);
+      const token = document.getElementById("token").value;
+      const timestamp = new Date().toISOString();
+
+      const content = {
+        device,
+        lat,
+        lng,
+        timestamp
+      };
+
+      const jsonContent = btoa(JSON.stringify(content, null, 2));
+
+      const res = await fetch("https://api.github.com/repos/SATESYUKUR/device-tracker/contents/location.json", {
+        method: "PUT",
+        headers: {
+          "Authorization": `token ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          message: `Update location ${timestamp}`,
+          content: jsonContent,
+          sha: await getCurrentSha(token)
+        })
+      });
+
+      if (res.ok) {
+        alert("✅ Lokasi berhasil diupdate ke GitHub!");
+        location.reload();
+      } else {
+        alert("❌ Gagal mengupdate lokasi ke GitHub");
+      }
+    }
+
+    async function getCurrentSha(token) {
+      const res = await fetch("https://api.github.com/repos/SATESYUKUR/device-tracker/contents/location.json", {
+        headers: { "Authorization": `token ${token}` }
+      });
+      const data = await res.json();
+      return data.sha;
+    }
   </script>
 </body>
 </html>
