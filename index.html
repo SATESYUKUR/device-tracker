@@ -140,6 +140,7 @@
     }
 
     loadData();
+    setInterval(loadData, 5000); // ⏱️ Auto-refresh setiap 5 detik
 
     async function submitToGitHub() {
       const device = document.getElementById("device").value;
