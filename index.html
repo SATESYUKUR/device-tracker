@@ -76,7 +76,7 @@
       attribution: '&copy; OpenStreetMap'
     }).addTo(map);
 
-    fetch(dataUrl)
+    fetch(dataUrl + "?t=" + new Date().getTime())
       .then(response => response.json())
       .then(data => {
         const lat = data.lat;
@@ -164,7 +164,8 @@
         alert("✅ Lokasi berhasil diupdate ke GitHub!");
         location.reload();
       } else {
-        alert("❌ Gagal mengupdate lokasi ke GitHub");
+        const errorText = await res.text();
+        alert("❌ Gagal mengupdate lokasi ke GitHub: " + errorText);
       }
     }
 
