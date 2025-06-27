@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Live Device Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html, body, #map {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    .navigate-button {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      padding: 10px;
+      background: white;
+      border-radius: 8px;
+      text-decoration: none;
+      color: black;
+      font-weight: bold;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      z-index: 1000;
+    }
+    .info-box {
+      position: absolute;
+      top: 60px;
+      left: 10px;
+      padding: 10px;
+      background: white;
+      border-radius: 8px;
+      font-size: 14px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <a id="navBtn" class="navigate-button" target="_blank">🔍 Arahkan ke Lokasi Terakhir</a>
+  <div id="infoBox" class="info-box"></div>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const dataUrl = "https://raw.githubusercontent.com/your-username/your-repo/main/location.json";
+
+    const map = L.map('map').setView([0, 0], 2);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    fetch(dataUrl)
+      .then(response => response.json())
+      .then(data => {
+        const lat = data.lat;
+        const lng = data.lng;
+        const timestamp = data.timestamp;
+        const label = data.device || "📱 Perangkat";
+        const coord = [lat, lng];
+
+        map.setView(coord, 16);
+
+        const targetMarker = L.marker(coord).addTo(map).bindPopup(`${label}<br>🕒 ${timestamp}`).openPopup();
+
+        L.circle(coord, {
+          color: 'green',
+          fillColor: '#0f3',
+          fillOpacity: 0.2,
+          radius: 300
+        }).addTo(map);
+
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition((position) => {
+            const userLat = position.coords.latitude;
+            const userLng = position.coords.longitude;
+            const userCoord = [userLat, userLng];
+
+            L.marker(userCoord, {
+              icon: L.icon({
+                iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+                iconSize: [32, 32],
+                iconAnchor: [16, 32]
+              })
+            }).addTo(map).bindPopup('📍 Lokasi Anda');
+
+            const distance = map.distance(userCoord, coord);
+            const distanceKm = (distance / 1000).toFixed(2);
+
+            // Kecepatan simulasi (jarak dibagi waktu statis, misalnya 10 detik)
+            const speedKmh = ((distance / 10) * 3.6).toFixed(1); // simulasi 10 detik update
+
+            let mode = "";
+            if (speedKmh < 6) mode = "🚶 Jalan kaki";
+            else if (speedKmh < 25) mode = "🛵 Motor";
+            else if (speedKmh < 120) mode = "🚗 Mobil/Kereta";
+            else mode = "✈️ Pesawat";
+
+            document.getElementById("infoBox").innerHTML = `
+              <b>Posisi Anda:</b> ${userLat.toFixed(6)}, ${userLng.toFixed(6)}<br>
+              <b>Target:</b> ${lat.toFixed(6)}, ${lng.toFixed(6)}<br>
+              <b>Jarak:</b> ${distanceKm} km<br>
+              <b>Estimasi Aktivitas:</b> ${mode}
+            `;
+
+            document.getElementById("navBtn").href = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${lat},${lng}`;
+          });
+        }
+      })
+      .catch(error => {
+        alert("Gagal memuat data lokasi: " + error);
+      });
+  </script>
+</body>
+</html>
