@@ -76,60 +76,70 @@
       attribution: '&copy; OpenStreetMap'
     }).addTo(map);
 
-    fetch(dataUrl + "?t=" + new Date().getTime())
-      .then(response => response.json())
-      .then(data => {
-        const lat = data.lat;
-        const lng = data.lng;
-        const timestamp = data.timestamp;
-        const label = data.device || "📱 Perangkat";
-        const coord = [lat, lng];
+    let targetMarker = null;
+    let targetCircle = null;
 
-        map.setView(coord, 16);
+    function loadData() {
+      fetch(dataUrl + "?t=" + new Date().getTime())
+        .then(response => response.json())
+        .then(data => {
+          const lat = data.lat;
+          const lng = data.lng;
+          const timestamp = data.timestamp;
+          const label = data.device || "📱 Perangkat";
+          const coord = [lat, lng];
 
-        L.marker(coord).addTo(map).bindPopup(`${label}<br>🕒 ${timestamp}`).openPopup();
+          map.setView(coord, 16);
 
-        L.circle(coord, {
-          color: 'green',
-          fillColor: '#0f3',
-          fillOpacity: 0.2,
-          radius: 300
-        }).addTo(map);
+          if (targetMarker) map.removeLayer(targetMarker);
+          if (targetCircle) map.removeLayer(targetCircle);
 
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition((position) => {
-            const userLat = position.coords.latitude;
-            const userLng = position.coords.longitude;
-            const userCoord = [userLat, userLng];
+          targetMarker = L.marker(coord).addTo(map).bindPopup(`${label}<br>🕒 ${timestamp}`).openPopup();
 
-            L.marker(userCoord, {
-              icon: L.icon({
-                iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-                iconSize: [32, 32],
-                iconAnchor: [16, 32]
-              })
-            }).addTo(map).bindPopup('📍 Lokasi Anda');
+          targetCircle = L.circle(coord, {
+            color: 'green',
+            fillColor: '#0f3',
+            fillOpacity: 0.2,
+            radius: 300
+          }).addTo(map);
 
-            const distance = map.distance(userCoord, coord);
-            const distanceKm = (distance / 1000).toFixed(2);
-            const speedKmh = ((distance / 10) * 3.6).toFixed(1);
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition((position) => {
+              const userLat = position.coords.latitude;
+              const userLng = position.coords.longitude;
+              const userCoord = [userLat, userLng];
 
-            let mode = "";
-            if (speedKmh < 6) mode = "🚶 Jalan kaki";
-            else if (speedKmh < 25) mode = "🛵 Motor";
-            else if (speedKmh < 120) mode = "🚗 Mobil/Kereta";
-            else mode = "✈️ Pesawat";
+              L.marker(userCoord, {
+                icon: L.icon({
+                  iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+                  iconSize: [32, 32],
+                  iconAnchor: [16, 32]
+                })
+              }).addTo(map).bindPopup('📍 Lokasi Anda');
 
-            document.getElementById("infoBox").innerHTML = `
-              <b>Posisi Anda:</b> ${userLat.toFixed(6)}, ${userLng.toFixed(6)}<br>
-              <b>Target:</b> ${lat.toFixed(6)}, ${lng.toFixed(6)}<br>
-              <b>Jarak:</b> ${distanceKm} km<br>
-              <b>Estimasi Aktivitas:</b> ${mode}`;
+              const distance = map.distance(userCoord, coord);
+              const distanceKm = (distance / 1000).toFixed(2);
+              const speedKmh = ((distance / 10) * 3.6).toFixed(1);
 
-            document.getElementById("navBtn").href = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${lat},${lng}`;
-          });
-        }
-      });
+              let mode = "";
+              if (speedKmh < 6) mode = "🚶 Jalan kaki";
+              else if (speedKmh < 25) mode = "🛵 Motor";
+              else if (speedKmh < 120) mode = "🚗 Mobil/Kereta";
+              else mode = "✈️ Pesawat";
+
+              document.getElementById("infoBox").innerHTML = `
+                <b>Posisi Anda:</b> ${userLat.toFixed(6)}, ${userLng.toFixed(6)}<br>
+                <b>Target:</b> ${lat.toFixed(6)}, ${lng.toFixed(6)}<br>
+                <b>Jarak:</b> ${distanceKm} km<br>
+                <b>Estimasi Aktivitas:</b> ${mode}`;
+
+              document.getElementById("navBtn").href = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${lat},${lng}`;
+            });
+          }
+        });
+    }
+
+    loadData();
 
     async function submitToGitHub() {
       const device = document.getElementById("device").value;
@@ -162,7 +172,7 @@
 
       if (res.ok) {
         alert("✅ Lokasi berhasil diupdate ke GitHub!");
-        location.reload();
+        loadData();
       } else {
         const errorText = await res.text();
         alert("❌ Gagal mengupdate lokasi ke GitHub: " + errorText);
