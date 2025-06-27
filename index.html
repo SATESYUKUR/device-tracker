@@ -140,7 +140,7 @@
     }
 
     loadData();
-    setInterval(loadData, 5000); // ⏱️ Auto-refresh setiap 5 detik
+    setInterval(loadData, 5000);
 
     async function submitToGitHub() {
       const device = document.getElementById("device").value;
@@ -157,26 +157,37 @@
       };
 
       const jsonContent = btoa(JSON.stringify(content, null, 2));
+      const apiUrl = "https://api.github.com/repos/SATESYUKUR/device-tracker/contents/location.json";
 
-      const res = await fetch("https://api.github.com/repos/SATESYUKUR/device-tracker/contents/location.json", {
-        method: "PUT",
-        headers: {
-          "Authorization": `token ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
+      try {
+        const sha = await getCurrentSha(token);
+
+        const body = {
           message: `Update location ${timestamp}`,
-          content: jsonContent,
-          sha: await getCurrentSha(token)
-        })
-      });
+          content: jsonContent
+        };
 
-      if (res.ok) {
-        alert("✅ Lokasi berhasil diupdate ke GitHub!");
-        loadData();
-      } else {
-        const errorText = await res.text();
-        alert("❌ Gagal mengupdate lokasi ke GitHub: " + errorText);
+        if (sha) body.sha = sha;
+
+        const res = await fetch(apiUrl, {
+          method: "PUT",
+          headers: {
+            "Authorization": `token ${token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(body)
+        });
+
+        if (res.ok) {
+          alert("✅ Lokasi berhasil diupdate ke GitHub!");
+        } else {
+          const error = await res.text();
+          console.error("❌ Gagal:", error);
+          alert("❌ Gagal mengupdate lokasi ke GitHub:\n" + error);
+        }
+      } catch (err) {
+        console.error("❌ Error saat mengambil SHA:", err);
+        alert("❌ Gagal mengambil SHA. Periksa token dan file.");
       }
     }
 
@@ -184,8 +195,13 @@
       const res = await fetch("https://api.github.com/repos/SATESYUKUR/device-tracker/contents/location.json", {
         headers: { "Authorization": `token ${token}` }
       });
-      const data = await res.json();
-      return data.sha;
+      if (res.ok) {
+        const data = await res.json();
+        console.log("SHA:", data.sha);
+        return data.sha;
+      } else {
+        return null;
+      }
     }
   </script>
 </body>
